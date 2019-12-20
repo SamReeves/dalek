@@ -5,10 +5,11 @@ This bot is intended to assist with the @unfarenyc project.  It can be adapted f
 
 Current features:     
 	Tweet lines from a text file.    
+	Follow every follower back    
 
 Features in development:    
-	Refollow all followers    
 	Retweet mentions containing a hashtag    
-	Tweet DMs which contain the mention and hashtag    
-	Reply to DMs which are not in the correct format    
-	Log spam accounts    
+	Tweet DMs which contain flags    
+	Reply to DMs without flags    
+	Reply to DMs with flags    
+	Report spam accounts    
