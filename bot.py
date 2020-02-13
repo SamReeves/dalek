@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # This bot was written by Sam Reeves.  For all questions or comments
@@ -9,29 +9,47 @@ import time
 import sys
 import keys
 
-# Do the OAuth dance... verify securely.  Declare verified user.
-auth = tweepy.OAuthHandler(keys.CONSUMER_KEY, keys.CONSUMER_SECRET)
-auth.set_access_token(keys.ACCESS_TOKEN, keys.ACCESS_TOKEN_SECRET)
+class dalek:
+    "I am a twitter bot."
 
-api = tweepy.API(auth)
-user = api.me()
+    def authenticateUser():
+        auth = tweepy.OAuthHandler(keys.CONSUMER_KEY, keys.CONSUMER_SECRET)
+        auth.set_access_token(keys.ACCESS_TOKEN, keys.ACCESS_TOKEN_SECRET)
 
-# Follow everybody back
-for follower in user.followers():
-	follower.follow()
+        api = tweepy.API(auth)
+        user = api.me()
+        return api, user
 
-# Generate a list of friends
-friends = []
-for friend in user.friends():
-	friends.append(friend.screen_name)
 
-# Open the file of canned messages
-argfile = str(sys.argv[1])
-filename = open(argfile, 'r')
-f = filename.readlines()
-filename.close()
+    def knowFollowers():
+        followers = []
+        for follower in user.followers():
+            followers.append(follower)
+        return followers
 
-# Tweet a line every 60 seconds
-for line in f:
-	api.update_status(status=line)
-	time.sleep(60)
+
+    def followEveryoneBack():
+        for follower in followers:
+	    follower.follow()
+
+
+    def knowFriends():
+        friends = []
+        for friend in user.friends():
+	    friends.append(friend.screen_name)
+        return friends
+
+
+    def openResource(resource):
+        filename = open(resource, 'r')
+        content = filename.readlines()
+        filename.close()
+        return content
+
+    def zombieTweet(resource, interval=60)
+        for line in resource:
+	    api.update_status(status=line)
+	    time.sleep(interval)
+
+
+
