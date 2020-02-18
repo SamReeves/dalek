@@ -4,52 +4,128 @@
 # This bot was written by Sam Reeves.  For all questions or comments
 # please email me.  samtreeves@gmail.com
 
-import tweepy
-import time
-import sys
 import keys
 
-class dalek:
-    "I am a twitter bot."
+import tweepy
+import time
+import random
+import os.path
+import dill
 
-    def authenticateUser():
-        auth = tweepy.OAuthHandler(keys.CONSUMER_KEY, keys.CONSUMER_SECRET)
-        auth.set_access_token(keys.ACCESS_TOKEN, keys.ACCESS_TOKEN_SECRET)
+class dalek(object):
+    "I am a twitter bot. Create an instance of me with bot = dalek()"
 
-        api = tweepy.API(auth)
-        user = api.me()
-        return api, user
+    def __init__(self):
+        self.auth = tweepy.OAuthHandler(
+                keys.consumer_key, keys.consumer_secret)
+        self.auth.set_access_token(
+                keys.access_token, keys.access_token_secret)
 
+        self.api = tweepy.API(self.auth)
 
-    def knowFollowers():
-        followers = []
-        for follower in user.followers():
-            followers.append(follower)
-        return followers
+        if os.path.exists('followers'):
+            with open('followers', 'rb') as infile:
+                self.followers = dill.load(infile)
+                
+        if os.path.exists('friends'):
+            with open('friends', 'rb') as infile:
+                self.friends = dill.load(infile)
+                
+        if os.path.exists('DMs'):
+            with open('DMs', 'rb') as infile:
+                self.dms = dill.load(infile)
+                self.most_recent_message = bot.getMessageID(self.dms[0])
+                
+        if os.path.exists('users'):
+            with open('users', 'rb') as infile:
+                self.users = dill.load(infile)
+    
+    def limit_handled(cursor):
+        while True:
+            try:
+                yield cursor.next()
+            except tweepy.RateLimitError:
+                time.sleep(15*60)
 
+    def updateFollowers(self):
+        for follower in tweepy.Cursor(self.api.followers).items():
+            if follower not in self.followers:
+                self.followers.append(follower)
+        with open('followers', 'wb') as outfile:
+            dill.dump(self.followers, outfile)
 
-    def followEveryoneBack():
-        for follower in followers:
-	    follower.follow()
+    def followEveryoneBack(self):
+        for follower in self.followers:
+            follower.follow()
 
+    def updateFriends(self):
+        for friend in tweepy.Cursor(self.api.friends).items():
+            if friend not in self.friends:
+                self.friends.append(friend)
+        with open('followers', 'wb') as outfile:
+            dill.dump(self.followers, outfile)
 
-    def knowFriends():
-        friends = []
-        for friend in user.friends():
-	    friends.append(friend.screen_name)
-        return friends
+    def zombieTweet(self, interval=60, duration=1):
+        lines = open('messages').read().splitlines()
+        for i in range(duration):
+            tweet = random.choice(lines)
+            print(tweet)
+            self.api.update_status(status=tweet)
+            if duration > 1:
+                time.sleep(interval*duration)
 
+    def updateDMs(self):
+        new_dm_call = self.api.list_direct_messages()
 
-    def openResource(resource):
-        filename = open(resource, 'r')
-        content = filename.readlines()
-        filename.close()
-        return content
+        if hasattr(self, 'dms'):
+            if not self.most_recent_message == bot.getMessageID(new_dm_call[0]):
+                unlogged_dms = []
+                for item in new_dm_call:
+                    if bot.getMessageID(item) > self.most_recent_message:
+                        unlogged_dms.append(item)
+                self.dms[:0] = unlogged_dms
+        else:
+            self.dms = new_dm_call
+        self.most_recent_message = bot.getMessageID(self.dms[0])
+        with open('DMs', 'wb') as outfile:
+            dill.dump(self.dms, outfile)
 
-    def zombieTweet(resource, interval=60)
-        for line in resource:
-	    api.update_status(status=line)
-	    time.sleep(interval)
+    def addUser(self, user_id, admin_status=False):
+        if not hasattr(self, 'users'):
+            self.users = [[], []]
+        self.users[0].append(user_id)
 
+        if admin_status:
+            self.users[1].append()
 
+        with open('users', 'wb') as outfile:
+            dill.dump(outfile, self.users)
 
+    def subtractUser(self, user_id, wipe=False):
+        if not hasattr(self, 'users'):
+            return None
+
+        elif user_id in self.users[1]:
+            self.users[1].remove(user_id)
+            if wipe:
+                self.users[0].remove(user_id)
+                with open('users', 'wb') as outfile:
+                    dill.dump(self.users, outfile)
+
+        elif user_id in self.users[0]:
+            self.users[0].remove(user_id)
+        with open('users', 'wb') as outfile:
+            dill.dump(outfile, self.users)
+
+    def getMessageID(self, message):
+        return int(message.id)
+
+    def getSenderID(self, message):
+        senderID = message.message_create['sender_id']
+        return int(senderID)
+
+    def getHashtags(self, message):
+        tags = []
+        for tag in message.message_create['message_data']['entities']['hashtags']:
+            tags.append(tag['text'])
+        return tags
