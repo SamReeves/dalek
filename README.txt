@@ -8,8 +8,9 @@ Current features:
 	Read DMs
 	Keep list of admins and users
 	Admins can add/subtract users
+	keep local cache of all content
+	Respond to DMs with message
 
 Features in development:
-	Build in a Docker container
-	Deploy to heroku
-	Respond to DMs with instructions
+	Deploy to AWS
+	
