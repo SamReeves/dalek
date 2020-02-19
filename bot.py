@@ -12,6 +12,7 @@ import random
 import os.path
 import dill
 
+
 class dalek(object):
     "I am a twitter bot. Create an instance of me with bot = dalek()"
 
@@ -22,53 +23,42 @@ class dalek(object):
                 keys.access_token, keys.access_token_secret)
 
         self.api = tweepy.API(self.auth)
+        if os.path.exists('local_cache.pkl'):
+            f = open("local_cache.pkl", "rb")
+            self.cache = dill.load(f)
+        else:
+            self.cache = {}
 
-        if os.path.exists('followers'):
-            with open('followers', 'rb') as infile:
-                self.followers = dill.load(infile)
-                
-        if os.path.exists('friends'):
-            with open('friends', 'rb') as infile:
-                self.friends = dill.load(infile)
-                
-        if os.path.exists('DMs'):
-            with open('DMs', 'rb') as infile:
-                self.dms = dill.load(infile)
-                self.most_recent_message = bot.getMessageID(self.dms[0])
-                
-        if os.path.exists('users'):
-            with open('users', 'rb') as infile:
-                self.users = dill.load(infile)
-    
     def limit_handled(cursor):
         while True:
             try:
                 yield cursor.next()
             except tweepy.RateLimitError:
                 time.sleep(15*60)
-
+                
+    def writeCache(self):
+        f = open("local_cache.pkl", "wb")
+        dill.dump(self.cache, f)
+        f.close()
+        
     def updateFollowers(self):
         for follower in tweepy.Cursor(self.api.followers).items():
-            if follower not in self.followers:
-                self.followers.append(follower)
-        with open('followers', 'wb') as outfile:
-            dill.dump(self.followers, outfile)
+            if follower.id not in self.cache['followers']:
+                self.cache['followers'].append(follower.id)
 
     def followEveryoneBack(self):
-        for follower in self.followers:
-            follower.follow()
+        for follower_id in self.cache['followers']:
+            if follower_id not in self.cache['friends']:
+                self.api.follow(follower_id)
 
     def updateFriends(self):
         for friend in tweepy.Cursor(self.api.friends).items():
-            if friend not in self.friends:
-                self.friends.append(friend)
-        with open('followers', 'wb') as outfile:
-            dill.dump(self.followers, outfile)
+            if friend.id not in self.cache['friends']:
+                self.cache['friends'].append(friend.id)
 
     def zombieTweet(self, interval=60, duration=1):
-        lines = open('messages').read().splitlines()
         for i in range(duration):
-            tweet = random.choice(lines)
+            tweet = random.choice(self.cache['statuses'])
             print(tweet)
             self.api.update_status(status=tweet)
             if duration > 1:
@@ -76,56 +66,55 @@ class dalek(object):
 
     def updateDMs(self):
         new_dm_call = self.api.list_direct_messages()
-
-        if hasattr(self, 'dms'):
-            if not self.most_recent_message == bot.getMessageID(new_dm_call[0]):
-                unlogged_dms = []
-                for item in new_dm_call:
-                    if bot.getMessageID(item) > self.most_recent_message:
-                        unlogged_dms.append(item)
-                self.dms[:0] = unlogged_dms
-        else:
-            self.dms = new_dm_call
-        self.most_recent_message = bot.getMessageID(self.dms[0])
-        with open('DMs', 'wb') as outfile:
-            dill.dump(self.dms, outfile)
-
+        if 'dm_cache' not in self.cache:
+            for dm in new_dm_call:
+                self.cache['dm_cache'][0][0] = dm.id
+                self.cache['dm_cache'][0][1] = dm
+        elif self.cache['dm_cache'][0][0] < new_dm_call[0].id:
+            for dm in new_dm_call:
+                if self.cache['dm_cache'][0][0] < dm.id:
+                    self.cache['dm_cache'][0][0] = dm.id
+                    self.cache['dm_cache'][0][1] = dm
+    
     def addUser(self, user_id, admin_status=False):
-        if not hasattr(self, 'users'):
-            self.users = [[], []]
-        self.users[0].append(user_id)
-
+        # if users not cached, create empty list
+        if 'users' not in self.cache:
+            self.cache['users'] = [[], []]
+            
+        # add user
+        self.cache['users'][0].append(user_id)
+        
+        # add admin rights
         if admin_status:
-            self.users[1].append()
+            self.cache['users'][1].append()
+            
+        # remove duplicates
+        self.cache['users'][0] = set(self.cache['users'][0])
+        self.cache['users'][1] = set(self.cache['users'][1])
 
-        with open('users', 'wb') as outfile:
-            dill.dump(outfile, self.users)
-
-    def subtractUser(self, user_id, wipe=False):
-        if not hasattr(self, 'users'):
-            return None
-
-        elif user_id in self.users[1]:
-            self.users[1].remove(user_id)
+    def removeUser(self, user_id, wipe=False):
+        
+        # if users not cached, create empty list
+        if 'users' not in self.cache:
+            self.cache['users'] = [[], []]
+        
+        #if user is admin, remove admin
+        elif user_id in self.cache['users'][1]:
+            self.cache['users'][1].remove(user_id)
+        
+        #also remove admin from users
             if wipe:
-                self.users[0].remove(user_id)
-                with open('users', 'wb') as outfile:
-                    dill.dump(self.users, outfile)
+                self.cache['users'][0].remove(user_id)
+        
+        #remove non-admin user
+        elif user_id in self.cache['users'][0]:
+            self.cache['users'][0].remove(user_id)
 
-        elif user_id in self.users[0]:
-            self.users[0].remove(user_id)
-        with open('users', 'wb') as outfile:
-            dill.dump(outfile, self.users)
-
-    def getMessageID(self, message):
-        return int(message.id)
-
-    def getSenderID(self, message):
-        senderID = message.message_create['sender_id']
-        return int(senderID)
-
-    def getHashtags(self, message):
+    def returnHashtags(message):
         tags = []
         for tag in message.message_create['message_data']['entities']['hashtags']:
             tags.append(tag['text'])
         return tags
+
+    def addStatus(status):
+        self.cache['statuses'].append(status)
