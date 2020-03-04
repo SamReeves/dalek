@@ -8,9 +8,9 @@ Current features:
 	Read DMs
 	Keep list of admins and users
 	Admins can add/subtract users
-	keep local cache of all content
+	Keep local cache of all content
 	Respond to DMs with message
 
 Features in development:
 	Deploy to AWS
-	
+	Parse and log locations
