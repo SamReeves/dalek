@@ -11,6 +11,7 @@ import time
 import os.path
 import dill
 import random
+import usaddress
 
 
 class dalek(object):
@@ -183,17 +184,42 @@ class dalek(object):
             command.append(tag['text'])
         return command, argument, user_id
 
-    def voteAdmin(self, user_id, target_id):
-        # Log a vote to grant Admin rights to a User
-        pass
+    def voteAdmin(self, user_id, target_id, vote):
+        # Establish threshold for making a change in rights
+        threshold = -(-len(self.users['admin'] // 2))
 
-    def voteRemoveAdmin(self, user_id, target_id):
-        # Log a vote to demote an Admin
-        pass
+        # Create a cache of votes
+        if not hasattr(self.users, 'votes'):
+            self.users['votes'] = {'promote': {}, 'remove': {}}
+
+        if vote == 'promote':
+            if not hasattr(self.users['votes']['promote'][target_id]):
+                self.users['votes']['promote'][target_id] = []
+
+            self.users['votes']['promote'][target_id].append(user_id)
+            self.users['votes']['promote'][target_id] =\
+                set(self.users['votes']['promote'][target_id])
+
+            if len(self.users['votes']['promote'][target_id] >= threshold):
+                self.users['admin'].append(target_id)
+                del self.users['votes']['promote'][target_id]
+
+        elif vote == 'remove':
+            if not hasattr(self.users['votes']['remove'][target_id]):
+                self.users['votes']['remove'][target_id] = []
+
+            self.users['votes']['remove'][target_id].append(user_id)
+            self.users['votes']['promote'][target_id] =\
+                set(self.users['votes']['promote'][target_id])
+
+            if len(self.users['votes']['promote'][target_id] >= threshold):
+                self.users['admin'].remove(target_id)
+                del self.users['votes']['remove'][target_id]
 
     def logSighting(self, user_id, location, timestamp):
         # Log who saw police, where, and when
-        pass
+        point = {'user_id': user_id, 'location': (0, 0), 'time': timestamp}
+        return point
 
     def performCommand(self, command, user_id, argument=None):
         # User commands
@@ -224,19 +250,19 @@ class dalek(object):
                 self.addStatus(argument)
 
             if command == 'vote_remove_admin':
-                self.voteRemoveAdmin(user_id, argument)
+                self.voteAdmin(user_id, argument, vote='remove')
 
             if command == 'remove_user':
-                self.removeUser(argument, wipe=False)
+                self.removeUser(argument)
 
             if command == 'add_user':
-                self.addUser(argument, admin=False)
+                self.addUser(argument)
 
             if command == 'vote_admin':
-                self.voteAdmin(user_id, argument)
+                self.voteAdmin(user_id, argument, vote='promote')
 
             if command == 'wipe_self':
                 self.removeUser(user_id, wipe=True)
 
             if command == 'demote_self':
-                self.removeUser(user_id, wipe=False)
+                self.removeUser(user_id)
