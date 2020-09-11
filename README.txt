@@ -1,6 +1,5 @@
 # dalek
-Twitter bot with some basic features intended for use by folloers
-@unfareNYC
+Twitter bot with some basic features
 
 Current features:     
 	Tweet lines from a text file.    
